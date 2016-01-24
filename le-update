@@ -1,0 +1,137 @@
+#!/usr/bin/python3
+
+import sys, os
+import OpenSSL
+import time
+from pyasn1.type import useful
+from datetime import datetime, timedelta
+import subprocess
+
+SITES_DIR        = '/etc/nginx/sites-enabled/'
+WEBROOT_DIR      = '/srv'
+CERT_PATH        = '/etc/letsencrypt/live/%s/cert.pem'
+MIN_RENEW_TIME   = timedelta(days=30)
+LETSENCRYPT_PATH = '/root/.local/share/letsencrypt/bin/letsencrypt'
+RELOAD_SERVICES  = ['nginx']
+
+def getBareDomain(host):
+    # TODO: use the list from publicsuffix, this just covers .com, .nl etc.
+    parts = host.split('.')
+    if len(parts) < 2:
+        raise ValueError('invalid host: ' + host)
+    return '.'.join(parts[:-2]), '.'.join(parts[-2:])
+
+def isBareDomain(host):
+    return host == getBareDomain(host)[1]
+
+def reloadServices():
+    for service in RELOAD_SERVICES:
+        subprocess.call(['service', service, 'reload'])
+
+def main(verbose=False, dryrun=False):
+    today = datetime.today()
+    renewed = False
+    # { domain: {
+    #    'hosts': {set of hosts},
+    #    'needsrenewing': boolean whether hosts on this domain need renewing
+    # } }
+    domains = {}
+    for host in sorted(os.listdir(SITES_DIR)):
+        if host[0] == '.' or host == 'default':
+            continue
+        webroot = os.path.join(WEBROOT_DIR, host)
+        domain = getBareDomain(host)[1]
+        certpath = CERT_PATH % domain
+        if domain not in domains:
+            domains[host] = {
+                'needsrenewing': False,
+                'hosts': {},
+            }
+        hosts = [host]
+        if isBareDomain(host):
+            hosts.append('www.' + host)
+
+        if not os.path.isdir(webroot):
+            print('Warning: webroot for %s does not exist' % host)
+            continue
+        if os.path.isfile(certpath):
+            # check date
+            certText = open(certpath, 'r').read()
+            cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, certText)
+            notAfterASN1 = cert.get_notAfter().decode('ascii')
+            notAfter = datetime.strptime(notAfterASN1, '%Y%m%d%H%M%SZ')
+            if notAfter >= today + MIN_RENEW_TIME:
+                if verbose:
+                    print('Certificate still good:', host)
+            else:
+                print('Certificate must be renewed:', host)
+                domains[domain]['needsrenewing'] = True
+
+            # get all SubjectAltNames
+            sans = None
+            for extNr in range(cert.get_extension_count()):
+                ext = cert.get_extension(extNr)
+                if ext.get_short_name() != b'subjectAltName':
+                    continue
+                sans = set()
+                for n in ext._subjectAltNameString().split(', '):
+                    if not n.startswith('DNS:'):
+                        print("Name does not start with 'DNS:'", repr(n))
+                        continue
+                    sans.add(n[len('DNS:'):])
+
+            # Check for hosts not included in the certificate
+            if not set(hosts).issubset(sans):
+                print('Not all domains are included in the SAN certificate:', ' '.join(hosts))
+                # This SAN domain isn't included in the certificate
+                domains[domain]['needsrenewing'] = True
+        else:
+            print('No certificate for host:', host)
+            domains[domain]['needsrenewing'] = True
+
+        domains[domain]['hosts'][host] = {
+            'webroot': webroot,
+            'names': hosts,
+        }
+
+    for domain in sorted(domains.keys()):
+        data = domains[domain]
+        if not data['needsrenewing']:
+            continue
+
+        command = [LETSENCRYPT_PATH, 'certonly', '--webroot', '--expand']
+        hosts = sorted(data['hosts'].keys())
+        if domain in hosts:
+            # Set domain as the first host
+            hosts.remove(domain)
+            hosts.insert(0, domain)
+        for host in hosts:
+            hostdata = data['hosts'][host]
+            command += ['-w', hostdata['webroot']]
+            for n in hostdata['names']:
+                command += ['-d', n]
+        print(' '.join(command))
+        if not dryrun:
+            try:
+                input('Press enter to run command:')
+            except KeyboardInterrupt:
+                return
+            subprocess.call(command)
+        renewed = True
+        break
+    if renewed:
+        if not dryrun:
+            print('Reloading services:', ' '.join(RELOAD_SERVICES))
+            reloadServices()
+
+if __name__ == '__main__':
+    verbose = False
+    dryrun = False
+    for opt in sys.argv[1:]:
+        if opt == '--verbose':
+            verbose = True
+        elif opt == '--dry-run':
+            dryrun = True
+        else:
+            print('Unknown option:', opt)
+    main(verbose=verbose, dryrun=dryrun)
