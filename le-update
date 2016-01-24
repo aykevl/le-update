@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# Copyright: this file is in the public domain, so has no copyright attached.
+# In other words, do with it whatever you want.
+
 import sys, os
 import OpenSSL
 import time

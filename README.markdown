@@ -1,4 +1,4 @@
-Let's Encrypt automatic updater
+# Let's Encrypt automatic updater
 
 Run this program every day to let it check for expired certificates.
 
