@@ -11,3 +11,5 @@ part long (TODO).
 
 This is not a finished script. It is not properly tested and may miss some
 things. But it works for me.
+
+License: The BSD 2-clause license.
