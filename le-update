@@ -52,7 +52,7 @@ def reloadServices():
     for service in RELOAD_SERVICES:
         subprocess.call(['service', service, 'reload'])
 
-def main(verbose=False, dryrun=False):
+def main(verbose=False, dryrun=False, cron=False):
     today = datetime.today()
     renewed = False
     # { domain: {
@@ -136,10 +136,11 @@ def main(verbose=False, dryrun=False):
                 command += ['-d', n]
         print(' '.join(command))
         if not dryrun:
-            try:
-                input('Press enter to run command:')
-            except KeyboardInterrupt:
-                return
+            if not cron:
+                try:
+                    input('Press enter to run command:')
+                except KeyboardInterrupt:
+                    return
             subprocess.call(command)
         renewed = True
         break
@@ -150,12 +151,16 @@ def main(verbose=False, dryrun=False):
 
 if __name__ == '__main__':
     verbose = False
-    dryrun = False
+    dryrun  = False
+    cron    = False
     for opt in sys.argv[1:]:
         if opt == '--verbose':
             verbose = True
         elif opt == '--dry-run':
             dryrun = True
+        elif opt == '--cron':
+            # disable input()
+            cron = True
         else:
             print('Unknown option:', opt)
-    main(verbose=verbose, dryrun=dryrun)
+    main(verbose=verbose, dryrun=dryrun, cron=cron)
