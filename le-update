@@ -37,6 +37,7 @@ CERT_PATH        = '/etc/letsencrypt/live/%s/cert.pem'
 MIN_RENEW_TIME   = timedelta(days=30)
 LETSENCRYPT_PATH = '/root/.local/share/letsencrypt/bin/letsencrypt'
 RELOAD_SERVICES  = ['nginx']
+SERVICE_BIN      = '/usr/sbin/service'
 
 def getBareDomain(host):
     # TODO: use the list from publicsuffix, this just covers .com, .nl etc.
@@ -50,7 +51,7 @@ def isBareDomain(host):
 
 def reloadServices():
     for service in RELOAD_SERVICES:
-        subprocess.call(['service', service, 'reload'])
+        subprocess.call([SERVICE_BIN, service, 'reload'])
 
 def main(verbose=False, dryrun=False, cron=False):
     today = datetime.today()
