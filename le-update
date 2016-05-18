@@ -36,7 +36,7 @@ WEBROOT_DIR      = '/srv'
 CERT_PATH        = '/etc/letsencrypt/live/%s/cert.pem'
 MIN_RENEW_TIME   = timedelta(days=30)
 LETSENCRYPT_PATH = '/root/.local/share/letsencrypt/bin/letsencrypt'
-RELOAD_SERVICES  = ['nginx']
+RELOAD_SERVICES  = ['nginx', 'postfix']
 SERVICE_BIN      = '/usr/sbin/service'
 
 def getBareDomain(host):
