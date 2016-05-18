@@ -35,7 +35,7 @@ SITES_DIR        = '/etc/nginx/sites-enabled/'
 WEBROOT_DIR      = '/srv'
 CERT_PATH        = '/etc/letsencrypt/live/%s/cert.pem'
 MIN_RENEW_TIME   = timedelta(days=30)
-LETSENCRYPT_PATH = '/root/.local/share/letsencrypt/bin/letsencrypt'
+LETSENCRYPT_PATH = 'letsencrypt' # see https://certbot.eff.org/
 RELOAD_SERVICES  = ['nginx', 'postfix']
 SERVICE_BIN      = '/usr/sbin/service'
 
